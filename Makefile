@@ -28,6 +28,4 @@ clean:
 	rm -f $(SRCDIR)/*.o *~ 
 	rm -f $(BINDIR)/*
 
-.PHONY: all clean
-```
-
+ .PHONY: all clean
