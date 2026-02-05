@@ -19,9 +19,15 @@ SRCDIR = ./src
 INCDIR = ./include
 
 # Build targets
-all: readfiles
+all: readfiles baseline query
 
 readfiles: $(SRCDIR)/readfiles.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
+baseline: $(SRCDIR)/baseline.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
+query: $(SRCDIR)/query.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
 
 clean:
