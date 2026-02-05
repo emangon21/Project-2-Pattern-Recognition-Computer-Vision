@@ -1,0 +1,22 @@
+### **.gitignore** 
+```
+# Compiled files
+*.o
+bin/*
+!bin/.gitkeep
+
+# OS files
+.DS_Store
+.vscode/settings.json
+
+# Image database (can be large)
+data/olympus/*
+data/*.jpg
+data/*.png
+
+# Feature CSV files
+*.csv
+
+# Results
+results/*
+!results/.gitkeep
