@@ -1,7 +1,7 @@
 /*
   Query program - Find top N similar images
   
-  Usage: ./bin/query <target_image> <feature_csv> <method> <N>
+  Usage: ./bin/query <target_image> <feature_csv> <method> <N> [bins]
 */
 #include <opencv2/opencv.hpp>
 #include <cstdio>
@@ -24,10 +24,11 @@ bool compareDistance(const ImageDistance &a, const ImageDistance &b) {
 
 int main(int argc, char *argv[]) {
     if (argc < 5) {
-        printf("Usage: %s <target_image> <feature_csv> <method> <N>\n", argv[0]);
-        printf("  method: baseline (for Task 1)\n");
+        printf("Usage: %s <target_image> <feature_csv> <method> <N> [bins]\n", argv[0]);
+        printf("  method: baseline, histogram, multi_histogram, texture_color\n");
         printf("  N: number of top matches to return\n");
-        printf("Example: %s ./data/olympus/pic.1016.jpg features_baseline.csv baseline 4\n", argv[0]);
+        printf("  bins: for histogram methods (default: 8)\n");
+        printf("Example: %s ./data/olympus/pic.0535.jpg features_texture_color.csv texture_color 4 8\n", argv[0]);
         return -1;
     }
     
@@ -35,11 +36,20 @@ int main(int argc, char *argv[]) {
     char *csv_filename = argv[2];
     char *method = argv[3];
     int N = atoi(argv[4]);
+    int bins = 8;
+    
+    if (argc >= 6) {
+        bins = atoi(argv[5]);
+    }
     
     printf("Target image: %s\n", target_filename);
     printf("Feature file: %s\n", csv_filename);
     printf("Method: %s\n", method);
-    printf("Top N matches: %d\n\n", N);
+    printf("Top N matches: %d\n", N);
+    if (strcmp(method, "histogram") == 0 || strcmp(method, "multi_histogram") == 0 || strcmp(method, "texture_color") == 0) {
+        printf("Bins per channel: %d\n", bins);
+    }
+    printf("\n");
     
     //read target image
     cv::Mat target_image = cv::imread(target_filename);
@@ -55,11 +65,27 @@ int main(int argc, char *argv[]) {
             printf("Error: Could not extract features from target image\n");
             return -1;
         }
-        printf("Extracted %lu features from target image\n", target_features.size());
+    } else if (strcmp(method, "histogram") == 0) {
+        if (histogram_features(target_image, target_features, bins) != 0) {
+            printf("Error: Could not extract features from target image\n");
+            return -1;
+        }
+    } else if (strcmp(method, "multi_histogram") == 0) {
+        if (multi_histogram_features(target_image, target_features, bins) != 0) {
+            printf("Error: Could not extract features from target image\n");
+            return -1;
+        }
+    } else if (strcmp(method, "texture_color") == 0) {
+        if (texture_color_features(target_image, target_features, bins, 16) != 0) {
+            printf("Error: Could not extract features from target image\n");
+            return -1;
+        }
     } else {
         printf("Error: Unknown method '%s'\n", method);
         return -1;
     }
+    
+    printf("Extracted %lu features from target image\n", target_features.size());
     
     //read feature database
     std::vector<char *> filenames;
@@ -76,7 +102,19 @@ int main(int argc, char *argv[]) {
     std::vector<ImageDistance> distances;
     
     for (size_t i = 0; i < filenames.size(); i++) {
-        float dist = ssd_distance(target_features, database_features[i]);
+        float dist;
+        
+        if (strcmp(method, "baseline") == 0) {
+            dist = ssd_distance(target_features, database_features[i]);
+        } else if (strcmp(method, "histogram") == 0) {
+            dist = histogram_intersection(target_features, database_features[i]);
+        } else if (strcmp(method, "multi_histogram") == 0) {
+            dist = multi_histogram_distance(target_features, database_features[i]);
+        } else if (strcmp(method, "texture_color") == 0) {
+            dist = texture_color_distance(target_features, database_features[i], bins, 16);
+        } else {
+            dist = -1.0f;
+        }
         
         ImageDistance img_dist;
         img_dist.filename = filenames[i];
@@ -93,7 +131,7 @@ int main(int argc, char *argv[]) {
     printf("%-30s %s\n", "--------", "--------");
     
     for (int i = 0; i < N && i < distances.size(); i++) {
-        printf("%-30s %.2f\n", distances[i].filename, distances[i].distance);
+        printf("%-30s %.4f\n", distances[i].filename, distances[i].distance);
     }
     
     return 0;

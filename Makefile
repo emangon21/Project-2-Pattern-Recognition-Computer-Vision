@@ -19,12 +19,21 @@ SRCDIR = ./src
 INCDIR = ./include
 
 # Build targets
-all: readfiles baseline query
+all: readfiles baseline histogram multi_histogram texture_color query
 
 readfiles: $(SRCDIR)/readfiles.o
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
 
 baseline: $(SRCDIR)/baseline.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
+histogram: $(SRCDIR)/histogram.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
+multi_histogram: $(SRCDIR)/multi_histogram.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
+texture_color: $(SRCDIR)/texture_color.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
 
 query: $(SRCDIR)/query.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
@@ -34,4 +43,4 @@ clean:
 	rm -f $(SRCDIR)/*.o *~ 
 	rm -f $(BINDIR)/*
 
- .PHONY: all clean
+.PHONY: all clean
