@@ -1,8 +1,9 @@
 #include <opencv2/opencv.hpp>
 #include <cstdio>
-#include <vector>
+#include <cstring>
 #include <string>
-#include <filesystem>
+#include <vector>
+#include <algorithm>
 
 #include "features.h"
 #include "csv_util.h"
@@ -13,147 +14,77 @@ static std::string basename_only(const std::string &path) {
     return path.substr(pos + 1);
 }
 
-static int banana_features_db(const cv::Mat &img, std::vector<float> &feat) {
-    if (img.empty()) return -1;
-
-    cv::Mat hsv;
-    cv::cvtColor(img, hsv, cv::COLOR_BGR2HSV);
-
-    cv::Mat mask;
-    // tighter range reduces false positives; if too strict, revert to (15,80,80)-(35,255,255)
-    cv::inRange(hsv, cv::Scalar(18, 100, 90), cv::Scalar(33, 255, 255), mask);
-
-    // clean mask
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7));
-    cv::morphologyEx(mask, mask, cv::MORPH_OPEN, kernel);
-    cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
-
-    // connected components: keep largest blob
-    cv::Mat labels, stats, centroids;
-    int n = cv::connectedComponentsWithStats(mask, labels, stats, centroids, 8, CV_32S);
-
-    int best = -1;
-    int bestArea = 0;
-    for (int i = 1; i < n; i++) { // skip background label 0
-        int area = stats.at<int>(i, cv::CC_STAT_AREA);
-        if (area > bestArea) {
-            bestArea = area;
-            best = i;
-        }
-    }
-
-    float area_ratio = (float)bestArea / (float)(img.rows * img.cols);
-
-    if (best <= 0 || bestArea <= 0) {
-        feat = {0,0,0,0,0,0, 0,0,0};
-        return 0;
-    }
-
-    cv::Mat blob = (labels == best);
-    blob.convertTo(blob, CV_8U, 255);
-
-    // moments for centroid + variance
-    cv::Moments m = cv::moments(blob, true);
-    float cx = (m.m00 > 0) ? (float)(m.m10 / m.m00) : 0.0f;
-    float cy = (m.m00 > 0) ? (float)(m.m01 / m.m00) : 0.0f;
-
-    float cx_n = cx / (float)img.cols;
-    float cy_n = cy / (float)img.rows;
-
-    double var_x = 0.0, var_y = 0.0;
-    {
-        std::vector<cv::Point> pts;
-        cv::findNonZero(blob, pts);
-        if (!pts.empty()) {
-            for (auto &p : pts) {
-                double dx = p.x - cx;
-                double dy = p.y - cy;
-                var_x += dx * dx;
-                var_y += dy * dy;
-            }
-            var_x /= pts.size();
-            var_y /= pts.size();
-            var_x /= (double)(img.cols * img.cols);
-            var_y /= (double)(img.rows * img.rows);
-        }
-    }
-
-    // shape stats: bbox aspect + extent + solidity
-    std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(blob, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-
-    float bbox_aspect = 0.0f, extent = 0.0f, solidity = 0.0f;
-    if (!contours.empty()) {
-        int ci = 0;
-        double bestA = 0.0;
-        for (int i = 0; i < (int)contours.size(); i++) {
-            double a = cv::contourArea(contours[i]);
-            if (a > bestA) { bestA = a; ci = i; }
-        }
-
-        double area = cv::contourArea(contours[ci]);
-        cv::Rect r = cv::boundingRect(contours[ci]);
-        double bboxArea = (double)r.width * (double)r.height;
-
-        if (r.width > 0 && r.height > 0) {
-            double ar = (double)std::max(r.width, r.height) / (double)std::min(r.width, r.height);
-            bbox_aspect = (float)ar;
-        }
-        if (bboxArea > 0) extent = (float)(area / bboxArea);
-
-        std::vector<cv::Point> hull;
-        cv::convexHull(contours[ci], hull);
-        double hullArea = cv::contourArea(hull);
-        if (hullArea > 0) solidity = (float)(area / hullArea);
-    }
-
-    float ed = edge_density(img);
-
-    // 9D feature vector
-    // [area_ratio, cx, cy, var_x, var_y, edge_density, bbox_aspect, extent, solidity]
-    feat.clear();
-    feat.reserve(9);
-    feat.push_back(area_ratio);
-    feat.push_back(cx_n);
-    feat.push_back(cy_n);
-    feat.push_back((float)var_x);
-    feat.push_back((float)var_y);
-    feat.push_back(ed);
-    feat.push_back(bbox_aspect);
-    feat.push_back(extent);
-    feat.push_back(solidity);
-
-    return 0;
+static bool is_image_file(const std::string &p) {
+    std::string s = p;
+    std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+    return (s.find(".jpg") != std::string::npos ||
+            s.find(".jpeg") != std::string::npos ||
+            s.find(".png") != std::string::npos ||
+            s.find(".bmp") != std::string::npos ||
+            s.find(".tif") != std::string::npos ||
+            s.find(".tiff") != std::string::npos);
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char **argv) {
     if (argc < 3) {
-        printf("Usage: %s <image_dir> <output_csv>\n", argv[0]);
+        printf("Usage: %s <image_directory> <output_csv>\n", argv[0]);
         return -1;
     }
 
-    char *image_dir = argv[1];
-    char *out_csv   = argv[2];
+    std::string img_dir = argv[1];
+    std::string out_csv = argv[2];
 
-    int reset_file = 1;
-    int count = 0;
+    // Collect image paths
+    std::vector<cv::String> files;
+    cv::glob(img_dir + "/*", files, false);
 
-    for (const auto &entry : std::filesystem::directory_iterator(image_dir)) {
-        if (!entry.is_regular_file()) continue;
-        if (entry.path().extension() != ".jpg") continue;
-
-        cv::Mat img = cv::imread(entry.path().string());
-        if (img.empty()) continue;
-
-        std::vector<float> features;
-        if (banana_features_db(img, features) != 0) continue;
-
-        std::string base = basename_only(entry.path().string());
-        append_image_data_csv(out_csv, (char*)base.c_str(), features, reset_file);
-        reset_file = 0;
-        count++;
+    if (files.empty()) {
+        printf("Error: No files found in %s\n", img_dir.c_str());
+        return -1;
     }
 
-    printf("Wrote banana features for %d images\n", count);
+    // Build CSV rows
+    std::vector<std::vector<std::string>> rows;
+    rows.reserve(files.size());
+
+    int kept = 0;
+    for (const auto &f : files) {
+        std::string path = std::string(f);
+        if (!is_image_file(path)) continue;
+
+        cv::Mat img = cv::imread(path);
+        if (img.empty()) continue;
+
+        std::vector<float> feat;
+        banana_feature_vector(img, feat);
+
+        // Write basename into CSV so query display works reliably
+        std::vector<std::string> row;
+        row.push_back(basename_only(path));
+        row.reserve(1 + feat.size());
+
+        char buf[64];
+        for (float v : feat) {
+            std::snprintf(buf, sizeof(buf), "%.6f", v);
+            row.push_back(buf);
+        }
+
+        rows.push_back(row);
+        kept++;
+    }
+
+    if (kept == 0) {
+        printf("Error: No readable images in %s\n", img_dir.c_str());
+        return -1;
+    }
+
+    // Write CSV
+    int rc = write_csv(out_csv.c_str(), rows);
+    if (rc != 0) {
+        printf("Error: Failed to write CSV %s\n", out_csv.c_str());
+        return -1;
+    }
+
+    printf("Wrote %d rows to %s\n", kept, out_csv.c_str());
     return 0;
 }

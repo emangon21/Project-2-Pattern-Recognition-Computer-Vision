@@ -210,3 +210,23 @@ int read_image_data_csv( char *filename, std::vector<char *> &filenames, std::ve
 
   return(0);
 }
+
+#include <fstream>
+#include <string>
+#include <vector>
+
+int write_csv(const char *filename,
+              const std::vector<std::vector<std::string>> &rows) {
+    std::ofstream out(filename);
+    if (!out.is_open()) return -1;
+
+    for (const auto &row : rows) {
+        for (size_t i = 0; i < row.size(); i++) {
+            out << row[i];
+            if (i + 1 < row.size()) out << ",";
+        }
+        out << "\n";
+    }
+    return 0;
+}
+
