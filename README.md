@@ -240,32 +240,6 @@ cd ../bin
 ```bash
 ./query ../data/olympus/pic.XXXX.jpg features_custom.csv custom 4
 ```
-
----
-
-## Extension
-
-### Banana Detection
-**Method:** Custom feature extraction optimized for banana identification
-
-#### Compilation
-```bash
-cd src
-make clean
-make banana
-cd ../bin
-```
-
-#### Extract Features
-```bash
-./banana ../data/olympus features_banana.csv
-```
-
-#### Query
-```bash
-./query ../data/olympus/pic.XXXX.jpg features_banana.csv banana 4
-```
-
 ---
 
 ### Blue Bin Detection
@@ -287,6 +261,97 @@ cd ../bin
 #### Query
 ```bash
 ./query ../data/olympus/pic.XXXX.jpg features_bluebin.csv bluebin 4
+```
+
+---
+---
+
+## Extensions
+
+###Banana Detection
+**Method:** Custom feature extraction optimized for banana identification
+
+#### Compilation
+```bash
+cd src
+make clean
+make banana
+cd ../bin
+```
+
+#### Extract Features
+```bash
+./banana ../data/olympus banana_features.csv
+```
+
+#### Query
+```bash
+./query ../data/olympus/pic.XXXX.jpg banana_features.csv banana 4
+```
+
+---
+
+### HSV Spatial Moments (Method A)
+
+#### Compilation
+```bash
+cd src
+make clean
+make hsv_moments
+cd ../bin
+```
+
+#### Extract Features
+```bash
+./hsv_moments ../data/olympus features_hsv_moments.csv
+```
+
+#### Query
+```bash
+./query ../data/olympus/pic.XXXX.jpg features_hsv_moments.csv hsv_moments 4
+```
+
+---
+
+### LBP Texture Histogram (Method B)
+#### Compilation
+```bash
+cd src
+make clean
+make lbp
+cd ../bin
+```
+
+#### Extract Features
+```bash
+./lbp ../data/olympus lbp_features.csv
+```
+
+#### Query
+```bash
+./query ../data/olympus/pic.XXXX.jpg lbp_features.csv lbp 4
+```
+---
+
+### Finding Blue Trash Can Bins
+#### Blue Blob Detection Method
+
+#### Compilation
+```bash
+cd src
+make clean
+make bluebin
+cd ../bin
+```
+
+#### Extract Features
+```bash
+./bluebin ../data/olympus bluebin_features.csv
+```
+
+#### Query
+```bash
+./query ../data/olympus/pic.XXXX.jpg bluebin_features.csv bluebin 4
 ```
 
 ---
