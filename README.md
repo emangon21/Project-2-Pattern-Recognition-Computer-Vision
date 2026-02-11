@@ -245,29 +245,6 @@ cd ../bin
 
 ## Extension
 
-### Banana Detection
-**Method:** Custom feature extraction optimized for banana identification
-
-#### Compilation
-```bash
-cd src
-make clean
-make banana
-cd ../bin
-```
-
-#### Extract Features
-```bash
-./banana ../data/olympus features_banana.csv
-```
-
-#### Query
-```bash
-./query ../data/olympus/pic.XXXX.jpg features_banana.csv banana 4
-```
-
----
-
 ### Blue Bin Detection
 **Method:** Custom feature extraction optimized for blue recycling bin identification
 
