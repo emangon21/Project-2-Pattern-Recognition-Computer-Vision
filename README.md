@@ -1,14 +1,11 @@
 # Content-Based Image Retrieval - Project 2
 
-CS 5330 Pattern Recognition and Computer Vision - Project 2
-
-## Time Travel Days
-**Time travel days used:** 0
+CS576 Pattern Recognition - Project 2
 
 ## Team Members
-- Eugenie Mangon - Setup + Tasks 1-4 + corresponding report
-- Ishika Gupta - Tasks 5-7 + Extensions + corresponding report
- 
+- Eugenie Mangon - Setup + Tasks 1-4
+- Ishika Gupta - Tasks 5-7 + Extension
+
 ## Project Description
 Implementation of a content-based image retrieval (CBIR) system using multiple feature extraction methods:
 - Baseline matching (7x7 center square with SSD)
