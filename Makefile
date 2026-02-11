@@ -3,7 +3,7 @@ CC = clang++
 CXX = $(CC)
 
 # Homebrew Apple Silicon
-CFLAGS = -std=c++11 -I/opt/homebrew/include/opencv4 -I./include
+CFLAGS = -std=c++17 -I/opt/homebrew/include/opencv4 -I./include
 CXXFLAGS = $(CFLAGS)
 
 # Library Paths
@@ -11,7 +11,7 @@ LDFLAGS = -L/opt/homebrew/lib
 LDLIBS = -framework AVFoundation -framework CoreMedia -framework CoreVideo \
          -framework CoreServices -framework CoreGraphics -framework AppKit \
          -framework OpenCL -lopencv_core -lopencv_highgui -lopencv_video \
-         -lopencv_videoio -lopencv_imgcodecs -lopencv_imgproc
+         -lopencv_videoio -lopencv_imgcodecs -lopencv_imgproc -lopencv_objdetect
 
 # Directories
 BINDIR = ./bin
@@ -19,7 +19,8 @@ SRCDIR = ./src
 INCDIR = ./include
 
 # Build targets
-all: readfiles baseline histogram multi_histogram texture_color query
+all: readfiles baseline histogram multi_histogram texture_color query custom banana bluebin gui face smart
+
 
 readfiles: $(SRCDIR)/readfiles.o
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
@@ -36,8 +37,26 @@ multi_histogram: $(SRCDIR)/multi_histogram.o $(SRCDIR)/features.o $(SRCDIR)/csv_
 texture_color: $(SRCDIR)/texture_color.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
 
+custom: $(SRCDIR)/custom.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
+
 query: $(SRCDIR)/query.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
+# Extension
+banana: $(SRCDIR)/banana.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
+bluebin: $(SRCDIR)/bluebin.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
+gui: $(SRCDIR)/gui.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
+face: $(SRCDIR)/face.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
 
 clean:
 	rm -f $(SRCDIR)/*.o *~ 
