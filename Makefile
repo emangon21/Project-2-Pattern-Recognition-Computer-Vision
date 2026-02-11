@@ -19,7 +19,8 @@ SRCDIR = ./src
 INCDIR = ./include
 
 # Build targets
-all: readfiles baseline histogram multi_histogram texture_color query custom banana bluebin gui face smart
+all: baseline histogram multi_histogram texture_color hsv_moments lbp query custom banana bluebin gui face
+
 
 
 readfiles: $(SRCDIR)/readfiles.o
@@ -57,6 +58,12 @@ gui: $(SRCDIR)/gui.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
 face: $(SRCDIR)/face.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
 	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
 
+# Extension Method A: HSV spatial moments
+hsv_moments: $(SRCDIR)/hsv_moments.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
+
+lbp: $(SRCDIR)/lbp.o $(SRCDIR)/features.o $(SRCDIR)/csv_util.o
+	$(CC) $^ -o $(BINDIR)/$@ $(LDFLAGS) $(LDLIBS)
 
 clean:
 	rm -f $(SRCDIR)/*.o *~ 

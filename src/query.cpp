@@ -1,8 +1,20 @@
 /*
   Query program - Find top N similar images
 
-  Usage: ./bin/query <target_image> <feature_csv> <method> <N> [bins]
+  Usage:
+    ./bin/query <target_image> <image_dir> <method> <feature_csv> <N> [bins]
+
+  Methods:
+    baseline, histogram, multi_histogram, texture_color, embedding, custom,
+    banana, bluebin, face, smart,
+    hsv_moments   (Extension Method A: 3x3 HSV spatial moments),
+    lbp           (Extension Method B: 256-bin LBP texture histogram)
+
+  Notes:
+    - For hsv_moments, bins is ignored; it uses a fixed 3x3 grid (54-D).
+    - For lbp, bins is ignored; it uses a fixed 256-bin histogram.
 */
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/objdetect.hpp>
 #include <cstdio>
@@ -12,6 +24,7 @@
 #include <algorithm>
 #include <string>
 #include <cmath>
+#include <iostream>
 
 #include "features.h"
 #include "csv_util.h"
@@ -58,6 +71,7 @@ static bool compareDistance(const ImageDistance &a, const ImageDistance &b) {
     return a.distance < b.distance;
 }
 
+// --- local helpers used by "smart"/banana/bluebin ---
 static float banana_edge_density(const cv::Mat &src) {
     cv::Mat gray;
     if (src.channels() == 3) cv::cvtColor(src, gray, cv::COLOR_BGR2GRAY);
@@ -316,16 +330,18 @@ static bool face_present_local(const cv::Mat &img) {
 }
 
 int main(int argc, char *argv[]) {
-    if (argc < 5) {
-        printf("Usage: %s <target_image> <feature_csv> <method> <N> [bins]\n", argv[0]);
+    if (argc < 6) {
+        printf("Usage: %s <target_image> <image_dir> <method> <feature_csv> <N> [bins]\n", argv[0]);
         return -1;
     }
 
     char *target_filename = argv[1];
-    char *csv_filename = argv[2];
+    std::string image_dir = argv[2];
     std::string method = argv[3];
-    int N = atoi(argv[4]);
-    int bins = (argc >= 6) ? atoi(argv[5]) : 8;
+    char *csv_filename = argv[4];
+    int N = atoi(argv[5]);
+
+    int bins = (argc >= 7) ? atoi(argv[6]) : 8;
     if (bins <= 0) bins = 8;
 
     cv::Mat target_image = cv::imread(target_filename);
@@ -353,6 +369,7 @@ int main(int argc, char *argv[]) {
     std::vector<float> target_features;
     std::vector<float> custom_part;
 
+    // --- compute target features ---
     if (method == "embedding" || method == "face") {
         std::string target_base = basename_only(std::string(target_filename));
         int target_idx = -1;
@@ -414,11 +431,23 @@ int main(int argc, char *argv[]) {
         target_features.insert(target_features.end(),
                                database_features[target_idx].begin() + (hist_len + edge_len),
                                database_features[target_idx].end());
+    } else if (method == "hsv_moments") {
+        int grid = 3;
+        if (hsv_spatial_moments(target_image, target_features, grid) != 0) {
+            printf("Error: Could not compute hsv_moments for target\n");
+            return -1;
+        }
+    } else if (method == "lbp") {
+        if (lbp_histogram_features(target_image, target_features) != 0) {
+            printf("Error: Could not compute lbp features for target\n");
+            return -1;
+        }
     } else {
         printf("Error: Unknown method '%s'\n", method.c_str());
         return -1;
     }
 
+    // --- compute distances to DB ---
     std::vector<ImageDistance> distances;
     distances.reserve(filenames.size());
 
@@ -434,6 +463,8 @@ int main(int argc, char *argv[]) {
         else if (method == "banana") dist = banana_distance(target_features, database_features[i]);
         else if (method == "bluebin") dist = bluebin_distance(target_features, database_features[i]);
         else if (method == "face") dist = face_metric_distance(target_features, database_features[i]);
+        else if (method == "hsv_moments") dist = l2_distance(target_features, database_features[i]);
+        else if (method == "lbp") dist = chi_square_distance(target_features, database_features[i]);
 
         distances.push_back({filenames[i], dist});
     }
@@ -442,8 +473,6 @@ int main(int argc, char *argv[]) {
 
     int W = N;
     if (W > (int)distances.size()) W = (int)distances.size();
-
-    std::string image_dir = "./data/olympus";
 
     int tile_w = 220;
     int tile_h = 220;
@@ -456,8 +485,10 @@ int main(int argc, char *argv[]) {
     draw_label(target, "TARGET");
     target.copyTo(canvas(cv::Rect(0, 0, tile_w, tile_h)));
 
+    // top matches
     for (int i = 0; i < N && i < (int)distances.size(); i++) {
         std::string fname = distances[i].filename;
+
         cv::Mat img = load_db_image(fname, image_dir);
         img = resize_or_blank(img, tile_w, tile_h);
 
@@ -468,9 +499,11 @@ int main(int argc, char *argv[]) {
         img.copyTo(canvas(cv::Rect((i+1)*tile_w, 0, tile_w, tile_h)));
     }
 
+    // least matches
     for (int i = 0; i < W; i++) {
         int idx = (int)distances.size() - 1 - i;
         std::string fname = distances[idx].filename;
+
         cv::Mat img = load_db_image(fname, image_dir);
         img = resize_or_blank(img, tile_w, tile_h);
 
